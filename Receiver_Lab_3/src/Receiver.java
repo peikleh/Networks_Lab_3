@@ -8,51 +8,99 @@ import java.net.UnknownHostException;
 */
 
 public class Receiver {
-	int count;
-
-	public Receiver() {
-		count = 0;
+	DatagramSocket rSocket;
+	byte[] window;
+	byte maxSeq;
+	
+	
+	
+	public Receiver() throws SocketException {
+		rSocket = new DatagramSocket(9876);
 	}
 	
-	public void send(Byte ack, InetAddress ip) throws IOException, InterruptedException{//Note that this just sends the message recieved as an ack
-		Thread.sleep(50);
-		DatagramSocket senderSocket = new DatagramSocket(9878);//create socket for sending
-		byte[] sendData = new byte[1024];	
-		sendData[0] = ack;	//allocate message space
-		if (count == 0 || count == 1){
-			sendData[0]= 1;
-		}else if(count ==2){
-			sendData[0] =0;
+	public void send(Byte ack, InetAddress ip, int port) throws IOException, InterruptedException{
+		
+		byte[] sendData = new byte[1024];
+		
+		sendData[0] = ack;								
+		DatagramPacket sendPkt = new DatagramPacket(sendData, sendData.length, ip, port);
+		rSocket.send(sendPkt);
+		for (int i = 0; i<window.length; i++){
+			System.out.print(window[i] + ", ");
 		}
-		count++;
-									
-		DatagramPacket sendPkt = new DatagramPacket(sendData, sendData.length, ip, 9879);//create packet to send to sender port 9879
-		senderSocket.send(sendPkt);														//send packet
-		senderSocket.close();															//close port
+		System.out.println();
+		//receive();
+																	
 		
 		
 	}
+	
+	public void receiveFirst() throws IOException, InterruptedException{
+		byte[] rcvData = new byte[1024];
+		DatagramPacket rcvPkt = new DatagramPacket(rcvData, rcvData.length);
+		rSocket.receive(rcvPkt);	
+		window = new byte[rcvData[2]];
+		maxSeq = rcvData[1];
+		byte seq = rcvData[0];
+		InetAddress IPAddress = rcvPkt.getAddress();
+		int port = rcvPkt.getPort();
+		
+		for(int i = 0; i<window.length; i++){//fill window
+			window[i] = (byte) i;
+		}
+		
+		shiftWindow(seq);
+		
+		byte b = 1;
+		
+		send(b, IPAddress, port);
+		send(seq, IPAddress, port);
+		
+		
+		
+	}
+	
+	public void shiftWindow(byte seqNum){
+		int checkAck = 1;
+		if (seqNum == window[0]){
+			while(window[checkAck] < 0 && checkAck < window.length){
+				checkAck += 1;
+			}
+			for(int i =0; i<window.length; i++){
+				window[i]=(byte) ((window[i]+((byte)checkAck))%maxSeq);
+			}
+		}else{
+			for (int i = 1; i<window.length; i++){
+				if (window[i] == seqNum){
+					window[i] = -1;
+				}
+			}
+		}
+		
+		
+	}
+	
+	
+	
 
 	public void receive() throws IOException, InterruptedException {
-		DatagramSocket receiverSocket = new DatagramSocket(9876);//open socket for listening on port 9876
-		byte[] rcvData = new byte[1024];						//create byte array to accept incoming message
-		while (true) {											//loop to keep listening
-			DatagramPacket rcvPkt = new DatagramPacket(rcvData, rcvData.length);//initialize a packet 
-			receiverSocket.receive(rcvPkt);						//set rcvPkt to the next packet waiting on the socket
-			InetAddress IPAddress = rcvPkt.getAddress();		//get IPAdress of sender
-			int port = rcvPkt.getPort();						//get port of sender
-						//print message
-			System.out.println(rcvData[0]);
-			if (rcvData[0]!=2){
-				send(rcvData[0], IPAddress);
-			}
+		
+		byte[] rcvData = new byte[1024];					
+		while (true) {											
+			DatagramPacket rcvPkt = new DatagramPacket(rcvData, rcvData.length);
+			rSocket.receive(rcvPkt);					
+			InetAddress IPAddress = rcvPkt.getAddress();
+			int port = rcvPkt.getPort();			
+			shiftWindow(rcvData[0]);
+			send(rcvData[0], IPAddress, port);
+			
 		}
 
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-		Receiver rec = new Receiver();//create instance of receiver class
-		rec.receive();//call receive message
+		Receiver rec = new Receiver();
+		rec.receiveFirst();
 	}
 
 }
