@@ -11,35 +11,28 @@ public class Sender {
 	// LinkedList<Object> timerQueue;
 	// Timer[] time;
 	int maxSeq;
-	int[] window;
+	int[][] window;
 	int[] messageList;
-	DatagramSocket senderSocket;
-	DatagramSocket receiverSocket;
+	DatagramSocket sSocket;
+
 
 	public Sender(int windowI, int seq, int[] dropPkt) throws UnknownHostException, IOException {
 		// time = new Timer[seq];
-		window = new int[windowI];
+		window = new int[windowI][2];
 		maxSeq = seq;
-		senderSocket = new DatagramSocket(9877);
-		// receiverSocket = new DatagramSocket(9879);
-		receiverSocket = senderSocket;
+		sSocket = new DatagramSocket(9877);
+		
+		sSocket = sSocket;
 		messageList = new int[10];
 
 		for (int i = 0; i < 10; i++) {
 			messageList[i] = i;
 		}
-
-		for (int i = 0; i < windowI; i++) {
-			window[i] = messageList[i];
-
-			Send(window[i] % maxSeq);
-			for (int j = 0; j<window.length; j++){
-				System.out.print(window[j]%maxSeq + ", ");
-			}
-			System.out.println();
-
+		for(int i = 0; i <window.length; i++){
+			window[i][0] = messageList[i];
 		}
 
+		Send();
 		Receive();
 	}
 
@@ -78,80 +71,66 @@ public class Sender {
 		byte[] rcvData = new byte[1024];
 		while (true) {
 			DatagramPacket rcvPkt = new DatagramPacket(rcvData, rcvData.length);
-			receiverSocket.receive(rcvPkt);
+			sSocket.receive(rcvPkt);
 			int a = (int) rcvData[0];
-			// stopTimer(a);
-
-			System.out.println("Recieved: " + a);
-
-			if (!AdjustWindow(a)) {
-				senderSocket.close();
-				receiverSocket.close();
-				break;
-			}
-
+			System.out.print("Acked:" + a);
+			AdjustWindow(a);
+			Send();
+			
 		}
 	}
 
-	public boolean AdjustWindow(int seqNum) throws UnknownHostException, IOException {
-		if (seqNum == (window[0] % maxSeq)) {
-			boolean check = true;
-
-			while (check) {
-				window[0] = window[1];// fix this. Only does window size of 4
-				window[1] = window[2];
-				window[2] = window[3];
-				window[3] = window[2] + 1;
-				if (window[3] < messageList.length) {
-					for (int i = 0; i < window.length; i++) {
-						System.out.print(window[i]%maxSeq + ", ");
-					}
-					System.out.println();
-
-					Send(window[3] % maxSeq);
-					// System.out.println("Sent packet: " + window[3] % maxSeq);
-
-				} else if (window[0] >= messageList.length) {
-					for (int i = 0; i<window.length; i++){
-						System.out.print(window[i]%maxSeq + ", ");
-					}
-					System.out.println();
-					return false;
-				}
-
-				if (window[0] >= 0) {
-					for (int i = 0; i<window.length; i++){
-						System.out.print(window[i]%maxSeq + ", ");
-					}
-					System.out.println();
-					check = false;
-				}
-
+	public void AdjustWindow(int seqNum) throws UnknownHostException, IOException {
+		int checkAck=1;
+		if (seqNum == (window[0][0] % maxSeq)) { //shift to next unacked packet
+			while (window[checkAck][1] == -1 && checkAck < window.length){
+				checkAck += 1;
 			}
-
-		} else {
+			for (int i = 0; i<window.length; i++){
+				if(window[i][0]+checkAck < messageList.length){
+					window[i][0] += checkAck;
+					if (i+checkAck<window.length){
+						window[i][1] = window[i+checkAck][1];
+					}else{
+						window[i][1] = 0;
+					}
+					
+					
+				}else{
+					window[i][0] = -1;
+				}
+			}
+			
+		} else { //mark as acked;
 			for (int i = 1; i < window.length; i++) {
-				if (seqNum == window[i] % maxSeq) {
-					window[i] = -1;
+				if (seqNum == window[i][0] % maxSeq) {
+					window[i][1] = -1;
 				}
 			}
-			for (int i = 0; i < window.length; i++) {
-				System.out.print(window[i] + ", ");
-			}
-			System.out.println();
 		}
-		return true;
+		printWindow();
 	}
 
-	public void Send(int seqNum) throws IOException {
-
-		// time[seqNum] = new Timer();
-		senderSocket.send(createPacket(seqNum));
-		System.out.println("sent" + seqNum);
+	public void Send() throws IOException {
 		
-		// time[seqNum].schedule(new timeOut(), 1000);
-		// timerQueue.add(time[seqNum]);
-
+		for (int i = 0; i < window.length; i++){
+			
+			if (window[i][1] ==0){
+				sSocket.send(createPacket(window[i][0]%maxSeq));
+				window[i][1]=1;
+				System.out.print("Sent:" + window[i][0]%maxSeq);
+				printWindow();
+			}
+		}
+		
+	}
+	
+	public void printWindow(){
+		for (int i = 0; i < window.length; i++){
+			System.out.print("   ");
+			System.out.print("[" + window[i][0]%maxSeq +", " + window[i][1] + "] ");
+		}
+		System.out.println();
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -167,7 +146,7 @@ public class Sender {
 		 */
 		int[] test = { 1, 2, 3 };
 
-		Sender sender = new Sender(4, 8, test);// create new Sender(Inputs
+		Sender sender = new Sender(4, 10, test);// create new Sender(Inputs
 												// unimportant right now)
 		// sender.testSend(); // calls send to make and send packet
 

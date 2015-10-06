@@ -9,7 +9,7 @@ import java.net.UnknownHostException;
 
 public class Receiver {
 	DatagramSocket rSocket;
-	byte[] window;
+	byte[][] window;
 	byte maxSeq;
 	
 	
@@ -26,10 +26,10 @@ public class Receiver {
 		DatagramPacket sendPkt = new DatagramPacket(sendData, sendData.length, ip, port);
 		rSocket.send(sendPkt);
 		for (int i = 0; i<window.length; i++){
-			System.out.print(window[i] + ", ");
+			System.out.print(window[i][0] + ", ");
 		}
 		System.out.println();
-		//receive();
+		receive();
 																	
 		
 		
@@ -39,21 +39,21 @@ public class Receiver {
 		byte[] rcvData = new byte[1024];
 		DatagramPacket rcvPkt = new DatagramPacket(rcvData, rcvData.length);
 		rSocket.receive(rcvPkt);	
-		window = new byte[rcvData[2]];
+		window = new byte[rcvData[2]][2];
 		maxSeq = rcvData[1];
 		byte seq = rcvData[0];
 		InetAddress IPAddress = rcvPkt.getAddress();
 		int port = rcvPkt.getPort();
 		
 		for(int i = 0; i<window.length; i++){//fill window
-			window[i] = (byte) i;
+			window[i][0] = (byte) i;
 		}
 		
 		shiftWindow(seq);
 		
-		byte b = 1;
 		
-		send(b, IPAddress, port);
+		
+		
 		send(seq, IPAddress, port);
 		
 		
@@ -62,17 +62,17 @@ public class Receiver {
 	
 	public void shiftWindow(byte seqNum){
 		int checkAck = 1;
-		if (seqNum == window[0]){
-			while(window[checkAck] < 0 && checkAck < window.length){
+		if (seqNum == window[0][0]){
+			while(window[checkAck][1] > 0 && checkAck < window.length){
 				checkAck += 1;
 			}
 			for(int i =0; i<window.length; i++){
-				window[i]=(byte) ((window[i]+((byte)checkAck))%maxSeq);
+				window[i][0]=(byte) ((window[i][0]+((byte)checkAck))%maxSeq);
 			}
 		}else{
 			for (int i = 1; i<window.length; i++){
-				if (window[i] == seqNum){
-					window[i] = -1;
+				if (window[i][0] == seqNum){
+					window[i][1] = 1;
 				}
 			}
 		}
