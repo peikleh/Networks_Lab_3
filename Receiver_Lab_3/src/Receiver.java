@@ -25,13 +25,27 @@ public class Receiver {
 		sendData[0] = ack;								
 		DatagramPacket sendPkt = new DatagramPacket(sendData, sendData.length, ip, port);
 		rSocket.send(sendPkt);
-		for (int i = 0; i<window.length; i++){
-			System.out.print(window[i][0] + ", ");
-		}
-		System.out.println();
+		System.out.print("Packet" + ack + "was received, Ack " + ack + "was sent   ");
+		PrintWindow();
 		receive();
 																	
 		
+		
+	}
+	
+	public void PrintWindow(){
+		System.out.print("[");
+		for(int i =0; i<window.length; i++){
+			
+			if(window[i][1] == 0){
+				System.out.print(window[i][0]+", ");
+			}else{
+				System.out.print(window[i][0]+"#, ");
+			}
+			
+		}
+		System.out.print("]");
+		System.out.println();
 		
 	}
 	

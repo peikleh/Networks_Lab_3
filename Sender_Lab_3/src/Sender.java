@@ -97,7 +97,8 @@ public class Sender {
 					
 					
 				}else{
-					window[i][0] = -1;
+					window[i][0] = window[i][0]+checkAck;
+					window[i][1] = 1;
 				}
 			}
 			
@@ -116,7 +117,10 @@ public class Sender {
 		for (int i = 0; i < window.length; i++){
 			
 			if (window[i][1] ==0){
-				sSocket.send(createPacket(window[i][0]%maxSeq));
+				if(window[i][0]!=2){
+					sSocket.send(createPacket(window[i][0]%maxSeq));
+				}
+				
 				window[i][1]=1;
 				System.out.print("Sent:" + window[i][0]%maxSeq);
 				printWindow();
@@ -126,13 +130,25 @@ public class Sender {
 	}
 	
 	public void printWindow(){
+		System.out.print("[");
 		for (int i = 0; i < window.length; i++){
-			System.out.print("   ");
-			System.out.print("[" + window[i][0]%maxSeq +", " + window[i][1] + "] ");
-		}
+			
+			if(window[i][0]<maxSeq){
+				if(window[i][1] == 0 || window[i][1] == -1){
+					System.out.print( + window[i][0]%maxSeq +", " );
+				}else if(window[i][1] ==1){
+					System.out.print(  window[i][0]%maxSeq +"*, " );
+				}
+			
+			}else{
+				System.out.print("-, ");
+			}
+			
+		
+	}
+		System.out.print("]");
 		System.out.println();
 	}
-
 	public static void main(String[] args) throws IOException {
 
 		/*
